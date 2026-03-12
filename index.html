@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>City Service HR - Full Enterprise MVP (Step 6 - Export & Print)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .section-hidden, .drawer-tab-hidden, .modal-tab-hidden { display: none; }
+        
+        tbody tr { cursor: pointer; transition: all 0.2s ease; border-left: 4px solid transparent; }
+        tbody tr:hover { background-color: #f1f5f9; }
+        .row-selected { background-color: #fff1f2 !important; border-left-color: #e11d48 !important; }
+
+        .panel-open { width: 720px; opacity: 1; border-left: 1px solid #e2e8f0; }
+        .panel-closed { width: 0px; opacity: 0; border-left: 0px; overflow: hidden; padding: 0 !important; }
+        #detail-panel { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .modal-animate { animation: fadeInScale 0.25s ease-out forwards; }
+
+        details > summary { list-style: none; cursor: pointer; }
+        details > summary::-webkit-details-marker { display: none; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="text-slate-800 flex h-screen overflow-hidden selection:bg-rose-100 selection:text-rose-900">
+
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)] shrink-0">
+        <div class="h-16 flex items-center px-6 border-b border-slate-100">
+            <div class="w-8 h-8 bg-rose-600 rounded-lg flex items-center justify-center mr-3 shadow-sm text-white"><i class="ph-bold ph-fork-knife text-xl"></i></div>
+            <div class="leading-tight"><span class="font-bold text-base tracking-tight text-slate-900 block">City Service</span><span class="text-[10px] font-semibold text-slate-500 tracking-wider">Restaurant Group</span></div>
+        </div>
+        <div class="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-2">İnsan Resursları</div>
+        <nav class="flex-1 overflow-y-auto px-3 space-y-1.5">
+            <button onclick="switchMainTab('dashboard')" class="main-nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium bg-rose-50 text-rose-700 transition-all" data-target="dashboard"><i class="ph-fill ph-squares-four text-lg mr-3"></i> Ümumi Panel</button>
+            <button onclick="switchMainTab('active')" class="main-nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all" data-target="active"><i class="ph-bold ph-users text-lg mr-3"></i> Cari Əməkdaşlar</button>
+            <button onclick="switchMainTab('alumni')" class="main-nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all" data-target="alumni"><i class="ph-bold ph-archive text-lg mr-3"></i> Keçmiş İşçilər</button>
+            <button onclick="switchMainTab('candidates')" class="main-nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all" data-target="candidates"><i class="ph-bold ph-user-list text-lg mr-3"></i> Namizədlər</button>
+        </nav>
+        <div class="p-4 border-t border-slate-100 m-3 rounded-xl bg-slate-50 border flex items-center"><img src="https://ui-avatars.com/api/?name=Zamir+C&background=ffe4e6&color=e11d48&bold=true" class="w-9 h-9 rounded-full shadow-sm"><div class="ml-3"><p class="text-sm font-bold text-slate-700">Zamir C.</p></div></div>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-hidden bg-[#f8fafc]">
+        
+        <header class="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 z-10 shrink-0">
+            <h1 class="text-xl font-bold text-slate-800" id="page-title">Ümumi Panel</h1>
+            <div class="flex items-center space-x-4">
+                <div id="searchContainer" class="relative group hidden"><i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i><input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Axtarış..." class="pl-9 pr-4 py-2 bg-slate-100 border-transparent focus:bg-white border focus:border-rose-300 rounded-lg text-sm focus:outline-none w-80 transition-all"></div>
+                <button id="exportBtn" onclick="exportToCSV()" class="hidden bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-lg text-sm font-semibold flex items-center transition-all"><i class="ph-bold ph-file-csv mr-2 text-lg"></i> Excel</button>
+                <button onclick="openAddModal()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center shadow-md transition-all"><i class="ph-bold ph-plus mr-2"></i> Yeni Əlavə</button>
+            </div>
+        </header>
+
+        <main class="flex-1 flex overflow-hidden relative">
+            <div class="flex-1 overflow-y-auto p-8 transition-all relative">
+                
+                <div id="dashboard" class="content-section">
+                    <div class="mb-8">
+                        <h2 class="text-lg font-bold text-slate-800 mb-1">Xoş gəldiniz, Zamir! 👋</h2>
+                        <p class="text-sm text-slate-500">City Service qrupunun ümumi insan resursları mənzərəsi.</p>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-6 mb-8" id="dash-stats">
+                        </div>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6" id="dash-depts">
+                            </div>
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6" id="dash-alerts">
+                            </div>
+                    </div>
+                </div>
+
+                <div id="active" class="content-section section-hidden">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[11px] uppercase tracking-wider font-bold">
+                                    <th class="px-6 py-4">Əməkdaş</th><th class="px-6 py-4">Vəzifə & Restoran</th><th class="px-6 py-4">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="active-tbody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="alumni" class="content-section section-hidden">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[11px] uppercase tracking-wider font-bold">
+                                    <th class="px-6 py-4">Keçmiş Əməkdaş</th><th class="px-6 py-4">Son Vəzifəsi & Restoran</th><th class="px-6 py-4">Çıxış Tarixi və Səbəbi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alumni-tbody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="candidates" class="content-section section-hidden">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[11px] uppercase tracking-wider font-bold">
+                                    <th class="px-6 py-4">Namizəd</th><th class="px-6 py-4">Müraciət Etdiyi Vəzifə</th><th class="px-6 py-4 text-right">Müsahibə Mərhələsi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="candidates-tbody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <div id="detail-panel" class="bg-slate-50 shrink-0 flex flex-col panel-closed shadow-[-8px_0_24px_rgba(0,0,0,0.03)] relative z-10">
+                <div class="relative bg-white border-b border-slate-200 pt-8 pb-0 px-8 shrink-0">
+                    <button onclick="closeDetailPanel()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-800 bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors" title="Bağla"><i class="ph-bold ph-x"></i></button>
+                    <button onclick="printProfile()" class="absolute top-4 right-14 text-slate-400 hover:text-indigo-600 bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors" title="Profili Çap Et"><i class="ph-bold ph-printer"></i></button>
+                    
+                    <div class="flex items-end space-x-5 mb-6">
+                        <img id="drawer-avatar" src="" class="w-20 h-20 rounded-2xl shadow-md border-4 border-white bg-rose-100 object-cover">
+                        <div class="pb-1 overflow-hidden">
+                            <div class="flex items-center space-x-3 mb-1">
+                                <span id="drawer-badge"></span>
+                                <span id="drawer-emp-id" class="text-xs font-mono text-slate-400 hidden"></span>
+                            </div>
+                            <h2 id="drawer-name" class="text-2xl font-bold text-slate-900 tracking-tight truncate">Ad Soyad</h2>
+                            <p id="drawer-role" class="text-sm font-medium text-slate-500 mt-0.5 truncate">Vəzifə</p>
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-6 border-b border-slate-200 overflow-x-auto" id="drawer-tabs-container"></div>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto p-6 relative bg-slate-50">
+                    <div id="tab-content-area" class="space-y-5"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="addModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeAddModal()"></div>
+        <div class="flex items-center justify-center min-h-screen p-4 pointer-events-none">
+            <div class="modal-animate relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col pointer-events-auto border border-slate-200">
+                
+                <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl shrink-0">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center"><i class="ph-bold ph-user-plus text-rose-600 mr-2 text-xl"></i> Yeni Profil Yarat</h3>
+                        <p class="text-xs text-slate-500 mt-1">Sistemə 100% tam məlumatların daxil edilməsi üçün proqressiv forma.</p>
+                    </div>
+                    <button type="button" onclick="closeAddModal()" class="text-slate-400 hover:text-slate-700 bg-white p-1.5 rounded-md border border-slate-200"><i class="ph-bold ph-x"></i></button>
+                </div>
+
+                <div class="px-6 border-b border-slate-200 bg-white shrink-0 flex space-x-6">
+                    <button type="button" onclick="switchModalTab('m-personal')" class="modal-nav-btn py-3 text-sm font-semibold text-rose-600 border-b-2 border-rose-600" data-target="m-personal">1. Şəxsi & Əlaqə</button>
+                    <button type="button" onclick="switchModalTab('m-job')" class="modal-nav-btn py-3 text-sm font-medium text-slate-500 hover:text-slate-800 border-b-2 border-transparent" data-target="m-job">2. İş & Kvalifikasiya</button>
+                    <button type="button" onclick="switchModalTab('m-finance')" class="modal-nav-btn py-3 text-sm font-medium text-slate-500 hover:text-slate-800 border-b-2 border-transparent" data-target="m-finance">3. Maliyyə & Təchizat</button>
+                </div>
+
+                <form id="newStaffForm" class="flex-1 overflow-y-auto bg-slate-50/50 p-6" onsubmit="saveNewStaff(event)">
+                    
+                    <div id="m-personal" class="modal-tab-content space-y-6">
+                        <div class="grid grid-cols-3 gap-4">
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Ad, Soyad, Ata adı *</label><input type="text" required class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Doğum Tarixi və Yeri</label><input type="text" placeholder="14.05.1990, Bakı" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Cins və Ailə Vəziyyəti</label><input type="text" placeholder="Kişi, Evli (2 uşaq)" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                        </div>
+                        <div class="grid grid-cols-4 gap-4">
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Vətəndaşlıq</label><input type="text" value="Azərbaycan" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">FİN Kod *</label><input type="text" required class="w-full px-3 py-2 border rounded-lg text-sm bg-white uppercase focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Vəsiqə Seriyası & Bitmə T.</label><input type="text" placeholder="AZE1234567 / 2030" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">SSN (Sosial Sığorta)</label><input type="text" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 border-t border-slate-200 pt-6">
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Mobil və Ev Telefonu *</label><input type="text" required placeholder="050... / 012..." class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Korp. və Şəxsi Email</label><input type="text" placeholder="email@cityservice.az" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Təcili Əlaqə</label><input type="text" placeholder="Ad, Qohumluq, Nömrə" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Qeydiyyatda olduğu ünvan</label><input type="text" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Faktiki yaşadığı ünvan</label><input type="text" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                        </div>
+                    </div>
+
+                    <div id="m-job" class="modal-tab-content modal-tab-hidden space-y-6">
+                        <div class="grid grid-cols-3 gap-4">
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Vəzifə *</label><input type="text" required class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Təyin Edilən Restoran *</label><select class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"><option>Mangal Steak House</option><option>Nar&Sharab</option><option>Beer Hall</option></select></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Rəhbərlik (Birbaşa/Dolayı)</label><input type="text" class="w-full px-3 py-2 border rounded-lg text-sm bg-white placeholder-slate-300 focus:border-rose-500 focus:outline-none" placeholder="Restoran Direktoru"></div>
+                        </div>
+                        <div class="grid grid-cols-4 gap-4">
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">İşə Qəbul Tarixi</label><input type="date" class="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-600 focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Sınaq Müddəti Bitimi</label><input type="date" class="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-600 focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">İş Qrafiki</label><input type="text" placeholder="Növbəli 2/2, Tam ştat" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Fiziki Lokasiya (Zona)</label><input type="text" placeholder="Mətbəx, VIP Zal, Lobby" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none"></div>
+                        </div>
+                        <div class="border-t border-slate-200 pt-6">
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Təhsil, Dillər və Sertifikatlar</label>
+                            <textarea rows="2" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none" placeholder="Turizm Universiteti. İngilis (B2). HACCP Sertifikatı."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Əvvəlki İş Yerləri (Karyera)</label>
+                            <textarea rows="2" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none" placeholder="Şirkət - Vəzifə - İllər"></textarea>
+                        </div>
+                    </div>
+
+                    <div id="m-finance" class="modal-tab-content modal-tab-hidden space-y-6">
+                        <div class="grid grid-cols-3 gap-4">
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Əməkhaqqı (Gross/Net) *</label><input type="text" required class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none" placeholder="Məs: 800 AZN (Net)"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Bankın Adı və IBAN</label><input type="text" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none" placeholder="Kapital Bank - AZ12..."></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Vergi Güzəşti Statusu</label><input type="text" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none" placeholder="Yoxdur / Müharibə Veteranı"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Bonus Şərtləri / KPI</label><input type="text" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none" placeholder="Aylıq plan dolduqda 5%"></div>
+                            <div><label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Tibbi Sığorta Paketi (Limitlər)</label><input type="text" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none" placeholder="PAŞA Sığorta (Standart)"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 border-t border-slate-200 pt-6">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Təhkim Olunmuş Əmlak (Uniforma, Avadanlıq)</label>
+                                <textarea rows="2" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none" placeholder="Uniforma (M), Rasiya, Dolab açarı"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-500 mb-1 uppercase">Giriş və Sistem İcazələri (Role/Badge)</label>
+                                <textarea rows="2" class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:border-rose-500 focus:outline-none" placeholder="Badge #102, Micros (İstifadəçi), Anbar girişi"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 pt-4 flex justify-between items-center border-t border-slate-200">
+                        <p class="text-[11px] text-slate-400">Tarixçə və Log məlumatları (Hədəflər, Məzuniyyətlər) profil yaradıldıqdan sonra daxil edilir.</p>
+                        <div class="flex space-x-3">
+                            <button type="button" onclick="closeAddModal()" class="px-5 py-2 bg-white border border-slate-300 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-sm">Ləğv et</button>
+                            <button type="submit" class="px-5 py-2 bg-rose-600 rounded-xl font-semibold text-white hover:bg-rose-700 transition-colors shadow-md text-sm">Bazanə Əlavə Et</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- ADDIM 1: ZƏNGİN VƏ TAM MƏLUMAT BAZASI ---
+        let db = {
+            active: [
+                { 
+                    id: "EMP-1042", name: "Elşən Məmmədov", role: "Baş Aşpaz (Executive Chef)", dept: "Mangal Steak House Zagulba", 
+                    dob: "14 May 1982 (Bakı)", gender: "Kişi", marital: "Evli (2 uşaq)", citizenship: "Azərbaycan",
+                    fin: "7A8B9C2", idDetails: "AZE1234567 (Bitir: 2030)", ssn: "SSN-9988-7766",
+                    phone: "+994-50-222-33-44", homePhone: "(012) 444-55-66", email: "elshan.m@cityservice.az", personalEmail: "elshan.chef@gmail.com",
+                    regAddress: "Bakı ş, Xətai ray, M.Hadi küç.", liveAddress: "Bakı ş, Xətai ray, Əhmədli qəs.", 
+                    emergency: "Aysel Məmmədova (Həyat Yoldaşı) - +994559998877",
+                    manager: "Restoran Direktoru", hireDate: "10 Yanvar 2018", probEnd: "10 Aprel 2018 (Bitib)",
+                    schedule: "Tam ştat (6 gün, 10:00-22:00)", location: "Əsas Mətbəx (Zona A)",
+                    edu: "Kulinariya Texnikumu (2000-2003)", certs: "Qida Təhlükəsizliyi (HACCP)",
+                    languages: "Azərbaycan, Rus, Türk", skills: ["Ət kəsimi", "Milli Mətbəx", "Menyu Planlaması"], 
+                    prevWork: ["MariVanna Baku (2014-2018) - Sous Chef"],
+                    salary: "3500 AZN (Net)", bank: "Kapital Bank", iban: "AZ12IBAZ34567890123456", 
+                    taxStatus: "Vergidən Azad (Müharibə Veteranı)", bonus: "Food Cost hədəfi - 10%",
+                    insurance: "PAŞA Sığorta (Gold Paket) - Limit: 10,000 AZN",
+                    equipment: ["Bıçaq Dəsti", "3 Dəst Şef Uniforması (XL)", "Planşet"], 
+                    corpItems: "Parkinq kartı (Zuğulba), Korp. nömrə",
+                    access: "Badge #9982, Anbar Girişi, iiko (Menecer modulu)",
+                    leaveBalance: "14 gün", 
+                    leaveLog: [
+                        {date: "10-24 Avqust 2023", type: "Əsas Məzuniyyət (14 gün)"},
+                        {date: "05-10 Fevral 2022", type: "Xəstəlik (Bülleten)"}
+                    ],
+                    goals: "2024 Hədəfi: Yeni mövsüm menyusunun tərtibi.", perfReviews: "2023 Reytinq: 4.9/5.0",
+                    disciplineLog: [
+                        {date: "15 Dekabr 2022", note: "Mükafat: İlin şefi (1000 AZN)"},
+                        {date: "02 İyun 2019", note: "Xəbərdarlıq: Tədarük gecikməsi"}
+                    ],
+                    promoLog: [{date: "10 Yanvar 2020", note: "Sous Chef -> Baş Aşpaz"}],
+                    sanitary: "12 Dekabr 2026", docs: ["Şəxsiyyət vəsiqəsi", "Sanitariya Kitabçası"], 
+                    avatarBg: "ffe4e6", avatarColor: "e11d48", status: "Aktiv"
+                },
+                { 
+                    id: "EMP-1115", name: "Lalə Əliyeva", role: "Böyük Hostess", dept: "Nar&Sharab", 
+                    dob: "22 İyul 1998 (Sumqayıt)", gender: "Qadın", marital: "Subay", citizenship: "Azərbaycan",
+                    fin: "5X2Y1Z8", idDetails: "AZE7654321 (Bitir: 2028)", ssn: "SSN-1122-3344",
+                    phone: "+994-55-777-88-99", homePhone: "-", email: "lala.a@cityservice.az", personalEmail: "lala98@mail.ru",
+                    regAddress: "Sumqayıt ş, 9-cu mkr.", liveAddress: "Bakı ş., Nərimanov ray.", 
+                    emergency: "Sevda Əliyeva (Anası) - +994701112233",
+                    manager: "Zal Meneceri", hireDate: "05 Mart 2023", probEnd: "Bitib",
+                    schedule: "Növbəli (2/2)", location: "Lobby",
+                    edu: "Turizm Universiteti", certs: "-",
+                    languages: "Azərbaycan, Rus, İngilis (B2)", skills: ["Qonaq Qarşılama", "Rezervasiya Sistemləri", "R-Keeper"], 
+                    prevWork: ["Boulevard Hotel (2020-2023) - Receptionist"],
+                    salary: "800 AZN + Tip", bank: "ABB", iban: "AZ55ABB12345678901234", 
+                    taxStatus: "Standart", bonus: "Aylıq plan bonusu", insurance: "PAŞA Sığorta (Standart)",
+                    equipment: ["Kostyum (S)", "Rasiya"], corpItems: "-", access: "R-Keeper (Rezervasiya)",
+                    leaveBalance: "21 gün", leaveLog: [{date: "01-10 Sentyabr 2023", type: "Əsas Məzuniyyət"}],
+                    goals: "İngilis dilli qonaqlarla ünsiyyətin inkişafı", perfReviews: "Qonaqlar tərəfindən çox sevilir.",
+                    disciplineLog: [], promoLog: [], sanitary: "05 May 2026", docs: ["CV", "Təhsil diplomu"], 
+                    avatarBg: "fce7f3", avatarColor: "db2777", status: "Aktiv"
+                }
+            ],
+            alumni: [
+                { 
+                    id: "ALM-088", name: "Rüstəm Həsənov", role: "Barmen", dept: "JazzClub by BeerHall", 
+                    phone: "+994-70-111-22-33", email: "rustam.h@gmail.com", 
+                    exitDate: "15 Fevral 2026", exitReason: "Öz xahişi (Təhsil üçün xaricə gediş)", workPeriod: "10 Fev. 2021 - 15 Fev. 2026 (5 il)",
+                    skills: ["Mixology", "Klassik Kokteyllər", "Micros"], avatarBg: "f1f5f9", avatarColor: "475569",
+                    notes: "Əla işçi idi. Qayıtsa yenidən işə qəbulu tövsiyə olunur."
+                }
+            ],
+            candidates: [
+                { 
+                    id: "CAN-045", name: "Sevinc Qasımova", role: "Ofisiant", dept: "Beer Hall", 
+                    phone: "+994-51-123-99-88", email: "sevinc99@mail.ru", 
+                    applyDate: "10 Mart 2026", stage: "Sınaq Günü (2-ci gün)", 
+                    exp: "3 il fərqli kafelərdə", skills: ["Micros", "Sürətli xidmət", "Gigiyena"], 
+                    avatarBg: "fef3c7", avatarColor: "d97706",
+                    notes: "Gülərüzdür, menyu əzbəri yaxşıdır. Gecə növbəsinə uyğundur."
+                }
+            ]
+        };
+
+        // YENİ STATE DƏYİŞƏNLƏRİ (Eksport və Çap üçün)
+        let currentActiveTab = 'dashboard';
+        let currentProfileData = null;
+
+        // --- YENİ ADDIM 5: DASHBOARD RENDER LOGİKASI ---
+        function renderDashboard() {
+            // 1. Rəqəmlərin hesablanması
+            const activeCount = db.active.length;
+            const alumniCount = db.alumni.length;
+            const candidateCount = db.candidates.length;
+
+            // Stats blokları
+            document.getElementById('dash-stats').innerHTML = `
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aktiv İşçilər</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${activeCount}</h3></div>
+                    <div class="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-2xl shadow-sm"><i class="ph-fill ph-users"></i></div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Keçmiş İşçilər (Alumni)</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${alumniCount}</h3></div>
+                    <div class="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 text-2xl shadow-sm"><i class="ph-fill ph-archive"></i></div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aktiv Namizədlər</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${candidateCount}</h3></div>
+                    <div class="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 text-2xl shadow-sm"><i class="ph-fill ph-user-list"></i></div>
+                </div>
+            `;
+
+            // 2. Restoranlar üzrə hesablama
+            const depts = {};
+            db.active.forEach(emp => { depts[emp.dept] = (depts[emp.dept] || 0) + 1; });
+            
+            let deptsHtml = `<div class="flex items-center mb-5"><i class="ph-fill ph-storefront text-rose-500 text-xl mr-2"></i><h4 class="text-sm font-bold text-slate-800">Restoranlar üzrə İşçi Sayı</h4></div><div class="space-y-3">`;
+            for(let d in depts) {
+                // Sadə faiz vizualizasiyası üçün width hesablama (MVP üçün)
+                let percent = (depts[d] / activeCount) * 100;
+                deptsHtml += `
+                    <div>
+                        <div class="flex justify-between items-center mb-1"><span class="text-xs font-bold text-slate-700">${d}</span><span class="text-xs font-semibold text-slate-500">${depts[d]} nəfər</span></div>
+                        <div class="w-full bg-slate-100 rounded-full h-2"><div class="bg-rose-500 h-2 rounded-full" style="width: ${percent}%"></div></div>
+                    </div>
+                `;
+            }
+            deptsHtml += '</div>';
+            document.getElementById('dash-depts').innerHTML = deptsHtml;
+
+            // 3. Bildirişlər (Alerts - MVP üçün statik/mock nümunələr)
+            document.getElementById('dash-alerts').innerHTML = `
+                <div class="flex items-center mb-5"><i class="ph-fill ph-bell-ringing text-amber-500 text-xl mr-2"></i><h4 class="text-sm font-bold text-slate-800">Cari Bildirişlər</h4></div>
+                <div class="space-y-3">
+                    <div class="flex items-start p-3 bg-amber-50 border border-amber-100 rounded-xl cursor-pointer hover:bg-amber-100/50 transition-colors" onclick="switchMainTab('candidates')">
+                        <i class="ph-fill ph-warning-circle text-amber-500 mt-0.5 mr-3 text-lg"></i>
+                        <div><p class="text-xs font-bold text-amber-800 uppercase">Qərar Gözlənilir</p><p class="text-sm font-medium text-amber-900 mt-0.5">Sevinc Qasımova (Sınaq günü bitir)</p></div>
+                    </div>
+                    <div class="flex items-start p-3 bg-rose-50 border border-rose-100 rounded-xl cursor-pointer hover:bg-rose-100/50 transition-colors">
+                        <i class="ph-fill ph-cake text-rose-500 mt-0.5 mr-3 text-lg"></i>
+                        <div><p class="text-xs font-bold text-rose-800 uppercase">Yaxınlaşan Doğum Günü</p><p class="text-sm font-medium text-rose-900 mt-0.5">Elşən Məmmədov (14 May)</p></div>
+                    </div>
+                    <div class="flex items-start p-3 bg-blue-50 border border-blue-100 rounded-xl cursor-pointer hover:bg-blue-100/50 transition-colors">
+                        <i class="ph-fill ph-file-text text-blue-500 mt-0.5 mr-3 text-lg"></i>
+                        <div><p class="text-xs font-bold text-blue-800 uppercase">Müqavilə Yenilənməsi</p><p class="text-sm font-medium text-blue-900 mt-0.5">Lalə Əliyeva (Vaxta 2 ay qalıb)</p></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- DİGƏR FUNKSİYALAR ---
+        function generateSkillsHtml(skills) {
+            return (skills || []).slice(0, 3).map(s => `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 mr-1.5 mb-1.5 shadow-sm">${s}</span>`).join('');
+        }
+
+        function selectRow(trElement, id, group) {
+            document.querySelectorAll('tbody tr').forEach(tr => tr.classList.remove('row-selected'));
+            trElement.classList.add('row-selected');
+            openDetailPanel(id, group);
+        }
+
+        function renderActive() {
+            document.getElementById('active-tbody').innerHTML = db.active.map(p => `
+                <tr onclick="selectRow(this, '${p.id}', 'active')">
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="flex items-center"><img src="https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=${p.avatarBg}&color=${p.avatarColor}&bold=true" class="w-10 h-10 rounded-xl shadow-sm"><div class="ml-4"><div class="font-bold text-slate-900">${p.name}</div><div class="text-slate-500 text-xs mt-0.5">${p.phone}</div></div></div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-bold text-slate-800">${p.role}</div><div class="text-rose-600 font-semibold text-[11px] mt-0.5 flex items-center"><i class="ph-fill ph-map-pin mr-1"></i> ${p.dept}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><span class="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-600 ring-1 ring-inset ring-emerald-500/20">Aktiv</span></td>
+                </tr>`).join('');
+        }
+
+        function renderAlumni() {
+            document.getElementById('alumni-tbody').innerHTML = db.alumni.map(p => `
+                <tr onclick="selectRow(this, '${p.id}', 'alumni')">
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="flex items-center"><img src="https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=${p.avatarBg}&color=${p.avatarColor}&bold=true" class="w-10 h-10 rounded-xl grayscale opacity-70"><div class="ml-4"><div class="font-bold text-slate-700">${p.name}</div><div class="text-slate-400 text-xs mt-0.5">${p.phone}</div></div></div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-semibold text-slate-700">${p.role}</div><div class="text-slate-400 text-[11px] mt-0.5">${p.dept}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-medium text-slate-800">${p.exitDate}</div><div class="text-[11px] text-slate-500 mt-0.5 truncate max-w-[200px]">${p.exitReason}</div></td>
+                </tr>`).join('');
+        }
+
+        function renderCandidates() {
+            document.getElementById('candidates-tbody').innerHTML = db.candidates.map(p => `
+                <tr onclick="selectRow(this, '${p.id}', 'candidates')">
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="flex items-center"><img src="https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=${p.avatarBg}&color=${p.avatarColor}&bold=true" class="w-10 h-10 rounded-xl shadow-sm"><div class="ml-4"><div class="font-bold text-slate-900">${p.name}</div><div class="text-slate-500 text-xs mt-0.5">${p.phone}</div></div></div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-semibold text-slate-800">${p.role}</div><div class="text-slate-400 text-[11px] mt-0.5">${p.dept}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-600 ring-1 ring-inset ring-amber-500/20">${p.stage}</span></td>
+                </tr>`).join('');
+        }
+
+        function switchMainTab(tabId) {
+            currentActiveTab = tabId; // Məlumatı eksport etmək üçün yadda saxlayırıq
+            closeDetailPanel();
+            document.querySelectorAll('.content-section').forEach(s => s.classList.add('section-hidden'));
+            document.getElementById(tabId).classList.remove('section-hidden');
+            
+            document.querySelectorAll('.main-nav-btn').forEach(btn => btn.className = "main-nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all");
+            document.querySelector(`.main-nav-btn[data-target="${tabId}"]`).className = "main-nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium bg-rose-50 text-rose-700 transition-all";
+            
+            const titles = { 'dashboard': 'Ümumi Panel', 'active': 'Cari Əməkdaşlar', 'alumni': 'Keçmiş İşçilər', 'candidates': 'Namizədlər' };
+            document.getElementById('page-title').innerText = titles[tabId];
+            
+            // Taba keçəndə axtarışı təmizlə və gizlət/göstər
+            const searchContainer = document.getElementById('searchContainer');
+            const exportBtn = document.getElementById('exportBtn');
+            const searchInput = document.getElementById('searchInput');
+
+            if(tabId === 'dashboard') {
+                searchContainer.classList.add('hidden');
+                exportBtn.classList.add('hidden');
+            } else {
+                searchContainer.classList.remove('hidden');
+                exportBtn.classList.remove('hidden');
+                searchInput.value = '';
+                filterTable();
+            }
+        }
+
+        function buildGridItem(label, value, isHighlight = false) {
+            return `<div><p class="text-[10px] font-semibold text-slate-400 uppercase">${label}</p><p class="mt-1 text-sm ${isHighlight ? 'font-bold text-rose-600' : 'font-medium text-slate-800'} break-words">${value || '-'}</p></div>`;
+        }
+
+        function openDetailPanel(id, group) {
+            const p = db[group].find(x => x.id === id);
+            currentProfileData = p; // Çap funksiyası üçün məlumatı yadda saxlayırıq
+            
+            document.getElementById('drawer-avatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=${p.avatarBg}&color=${p.avatarColor}&bold=true&size=128`;
+            document.getElementById('drawer-name').innerText = p.name;
+            document.getElementById('drawer-role').innerText = p.role;
+            
+            const empIdElement = document.getElementById('drawer-emp-id');
+            empIdElement.innerText = p.id;
+            empIdElement.classList.remove('hidden');
+
+            let badgeHtml = '';
+            let tabsHtml = '';
+
+            if (group === 'active') {
+                badgeHtml = `<span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase">Cari Əməkdaş</span>`;
+                tabsHtml = `
+                    <button onclick="renderPanelContent('active', 'personal', '${id}')" class="drawer-nav-btn pb-3 text-sm font-semibold text-rose-600 border-b-2 border-rose-600 transition-colors whitespace-nowrap">Şəxsi & Demoqrafiya</button>
+                    <button onclick="renderPanelContent('active', 'career', '${id}')" class="drawer-nav-btn pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 border-b-2 border-transparent transition-colors whitespace-nowrap">İş & Kvalifikasiya</button>
+                    <button onclick="renderPanelContent('active', 'assets', '${id}')" class="drawer-nav-btn pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 border-b-2 border-transparent transition-colors whitespace-nowrap">Maliyyə & Təchizat</button>
+                    <button onclick="renderPanelContent('active', 'hr', '${id}')" class="drawer-nav-btn pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 border-b-2 border-transparent transition-colors whitespace-nowrap">HR & Tarixçə (Logs)</button>
+                `;
+            } else if (group === 'alumni') {
+                badgeHtml = `<span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 uppercase">Keçmiş İşçi</span>`;
+                tabsHtml = `
+                    <button onclick="renderPanelContent('alumni', 'exitInfo', '${id}')" class="drawer-nav-btn pb-3 text-sm font-semibold text-rose-600 border-b-2 border-rose-600 transition-colors whitespace-nowrap">Çıxış Detalları</button>
+                `;
+            } else if (group === 'candidates') {
+                badgeHtml = `<span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 uppercase">Namizəd</span>`;
+                tabsHtml = `
+                    <button onclick="renderPanelContent('candidates', 'interview', '${id}')" class="drawer-nav-btn pb-3 text-sm font-semibold text-amber-600 border-b-2 border-amber-600 transition-colors whitespace-nowrap">Müsahibə & Rəy</button>
+                `;
+            }
+
+            document.getElementById('drawer-badge').innerHTML = badgeHtml;
+            document.getElementById('drawer-tabs-container').innerHTML = tabsHtml;
+
+            renderPanelContent(group, group === 'active' ? 'personal' : (group === 'alumni' ? 'exitInfo' : 'interview'), id);
+
+            document.getElementById('detail-panel').classList.remove('panel-closed');
+            document.getElementById('detail-panel').classList.add('panel-open');
+        }
+
+        function renderPanelContent(group, tabType, id) {
+            const p = db[group].find(x => x.id === id);
+            let content = '';
+
+            document.querySelectorAll('.drawer-nav-btn').forEach(btn => {
+                const colorBase = group === 'candidates' ? 'amber' : 'rose';
+                btn.className = `drawer-nav-btn pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 border-b-2 border-transparent transition-colors whitespace-nowrap`;
+                if(btn.getAttribute('onclick').includes(`'${tabType}'`)) {
+                    btn.className = `drawer-nav-btn pb-3 text-sm font-semibold text-${colorBase}-600 border-b-2 border-${colorBase}-600 transition-colors whitespace-nowrap`;
+                }
+            });
+
+            if (group === 'active' && tabType === 'personal') {
+                content = `
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-4">
+                        <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Təməl "Pasport" Məlumatları</h4>
+                        <div class="grid grid-cols-2 gap-y-4 gap-x-6">
+                            ${buildGridItem("Doğum Tarixi və Yeri", p.dob)} ${buildGridItem("Cins və Ailə Vəziyyəti", p.gender + ", " + p.marital)}
+                            ${buildGridItem("Vətəndaşlıq", p.citizenship)} ${buildGridItem("FİN Kod", p.fin, true)}
+                            ${buildGridItem("Şəxsiyyət Vəsiqəsi", p.idDetails)} ${buildGridItem("Sosial Sığorta (SSN)", p.ssn)}
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-4">
+                        <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Əlaqə və Ünvan (Tam Siyahı)</h4>
+                        <div class="grid grid-cols-2 gap-y-4 gap-x-6">
+                            ${buildGridItem("Mobil Telefon", p.phone)} ${buildGridItem("Ev Telefonu", p.homePhone)}
+                            ${buildGridItem("Korporativ Email", p.email)} ${buildGridItem("Şəxsi Email", p.personalEmail)}
+                            <div class="col-span-2 pt-2 border-t border-slate-50">${buildGridItem("Qeydiyyatda olduğu ünvan", p.regAddress)}</div>
+                            <div class="col-span-2">${buildGridItem("Faktiki yaşadığı ünvan", p.liveAddress)}</div>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-rose-50 rounded-lg border border-rose-100 flex items-center">
+                        <i class="ph-fill ph-phone-call text-rose-500 text-2xl mr-3"></i>
+                        <div><p class="text-[10px] font-semibold text-rose-400 uppercase">Təcili Hallarda Əlaqə</p><p class="text-sm font-bold text-rose-800">${p.emergency}</p></div>
+                    </div>
+                `;
+            } else if (group === 'active' && tabType === 'career') {
+                let prevList = (p.prevWork || []).map(w => `<div class="relative pl-4 mb-3 border-l-2 border-slate-100"><span class="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-slate-300 ring-4 ring-white"></span><p class="text-sm font-bold text-slate-700">${w.split(' - ')[1] || w}</p><p class="text-[11px] font-semibold text-slate-500">${w.split(' - ')[0] || ''}</p></div>`).join('');
+                content = `
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-4">
+                        <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">İş Profili və Lokasiya</h4>
+                        <div class="grid grid-cols-2 gap-y-4 gap-x-6">
+                            ${buildGridItem("Şöbə / Restoran", p.dept, true)} ${buildGridItem("Fiziki Lokasiya (Zona)", p.location)}
+                            <div class="col-span-2">${buildGridItem("Rəhbərlik", p.manager)}</div>
+                            ${buildGridItem("İş Qrafiki / Növü", p.schedule)} ${buildGridItem("İşə Qəbul və Sınaq M.", p.hireDate + " / " + p.probEnd)}
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Təhsil, Təcrübə və Bacarıqlar</h4>
+                        <div class="grid grid-cols-1 gap-y-4">
+                            ${buildGridItem("Təhsil və Sertifikatlar", p.edu + "<br>" + p.certs)}
+                            ${buildGridItem("Dil Bilikləri", p.languages)}
+                            <div><p class="text-[10px] font-semibold text-slate-400 uppercase mb-1">Peşəkar Bacarıqlar</p><div class="flex flex-wrap">${generateSkillsHtml(p.skills)}</div></div>
+                            <div class="pt-3 border-t border-slate-50"><p class="text-[10px] font-semibold text-slate-400 uppercase mb-2">Əvvəlki Karyera</p>${prevList}</div>
+                        </div>
+                    </div>
+                `;
+            } else if (group === 'active' && tabType === 'assets') {
+                content = `
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-4">
+                        <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Maliyyə və Hesablaşma</h4>
+                        <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex justify-between items-center mb-4">
+                            <div class="flex items-center"><i class="ph-fill ph-money text-emerald-500 text-2xl mr-3"></i><div><p class="text-xs font-bold text-emerald-700 uppercase">Əməkhaqqı</p></div></div>
+                            <span class="font-mono font-bold text-emerald-700 text-xl">${p.salary}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-y-4 gap-x-6 mb-4">
+                            ${buildGridItem("Bank Rekvizitləri (IBAN)", p.bank + " - " + p.iban)}
+                            ${buildGridItem("Vergi Güzəştləri Statusu", p.taxStatus)}
+                        </div>
+                        <div class="p-3 bg-indigo-50 rounded-lg border border-indigo-100 mb-4">${buildGridItem("Bonus Şərtləri / KPI", p.bonus)}</div>
+                        ${buildGridItem("Tibbi Sığorta Paketi", p.insurance)}
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Təhkim Olunmuş Əmlak və İcazələr</h4>
+                        <div class="grid grid-cols-1 gap-y-4">
+                            ${buildGridItem("Təhkim olunan Avadanlıqlar", p.equipment.join(", "))}
+                            ${buildGridItem("Digər Korporativ Əşyalar", p.corpItems)}
+                            <div class="p-3 bg-slate-100 rounded-lg border border-slate-200">${buildGridItem("Sistem İcazələri və Fiziki Giriş", p.access)}</div>
+                        </div>
+                    </div>
+                `;
+            } else if (group === 'active' && tabType === 'hr') {
+                let leaveLogs = p.leaveLog.map(l => `<div class="flex justify-between py-2 border-b border-slate-50 text-sm"><span class="font-semibold text-slate-700">${l.type}</span><span class="text-slate-500">${l.date}</span></div>`).join('');
+                let discLogs = p.disciplineLog.map(l => `<div class="py-2 border-b border-slate-50 text-sm"><span class="font-bold ${l.note.includes('Xəbərdarlıq') ? 'text-red-500' : 'text-emerald-500'}">${l.date}:</span> <span class="text-slate-700">${l.note}</span></div>`).join('');
+                let promoLogs = p.promoLog.map(l => `<div class="py-2 border-b border-slate-50 text-sm"><span class="font-bold text-indigo-500">${l.date}:</span> <span class="text-slate-700">${l.note}</span></div>`).join('');
+                let docsHtml = (p.docs || []).map(d => `<div class="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg"><div class="flex items-center"><i class="ph-fill ph-file-pdf text-red-500 text-lg mr-3"></i><span class="text-sm font-medium text-slate-700">${d}.pdf</span></div></div>`).join('');
+
+                content = `
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">${buildGridItem("Məzuniyyət Balansı", p.leaveBalance, true)}</div>
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">${buildGridItem("Sanitariya Kitabçası", p.sanitary)}</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-4">
+                        <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Performans İdarəetməsi</h4>
+                        <p class="text-sm font-semibold text-slate-800 mb-2">${p.goals}</p>
+                        <p class="text-sm text-slate-600 border-l-2 border-rose-300 pl-3">${p.perfReviews}</p>
+                    </div>
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm mb-4 overflow-hidden divide-y divide-slate-100">
+                        <details class="group">
+                            <summary class="flex justify-between items-center font-medium cursor-pointer list-none p-4 hover:bg-slate-50"><span class="text-sm font-bold text-slate-700 flex items-center"><i class="ph-bold ph-calendar-blank mr-2 text-rose-500"></i> Məzuniyyət Tarixçəsi</span><span class="transition group-open:rotate-180"><i class="ph-bold ph-caret-down"></i></span></summary>
+                            <div class="text-neutral-600 group-open:animate-fadeIn mt-3 text-sm px-4 pb-4">${leaveLogs || 'Məlumat yoxdur'}</div>
+                        </details>
+                        <details class="group">
+                            <summary class="flex justify-between items-center font-medium cursor-pointer list-none p-4 hover:bg-slate-50"><span class="text-sm font-bold text-slate-700 flex items-center"><i class="ph-bold ph-trend-up mr-2 text-rose-500"></i> Vəzifə Yüksəlişi Tarixçəsi</span><span class="transition group-open:rotate-180"><i class="ph-bold ph-caret-down"></i></span></summary>
+                            <div class="text-neutral-600 group-open:animate-fadeIn mt-3 text-sm px-4 pb-4">${promoLogs || 'Məlumat yoxdur'}</div>
+                        </details>
+                        <details class="group">
+                            <summary class="flex justify-between items-center font-medium cursor-pointer list-none p-4 hover:bg-slate-50"><span class="text-sm font-bold text-slate-700 flex items-center"><i class="ph-bold ph-warning-circle mr-2 text-rose-500"></i> İntizam Tarixçəsi (Töhmət/Mükafat)</span><span class="transition group-open:rotate-180"><i class="ph-bold ph-caret-down"></i></span></summary>
+                            <div class="text-neutral-600 group-open:animate-fadeIn mt-3 text-sm px-4 pb-4">${discLogs || 'Məlumat yoxdur'}</div>
+                        </details>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Sənəd Arxivi (E-Dossier)</h4>
+                        <div class="space-y-1">${docsHtml}</div>
+                    </div>
+                `;
+            } else if (group === 'alumni') {
+                content = `
+                    <div class="bg-white p-5 rounded-xl border border-rose-200 shadow-sm mb-4 bg-rose-50/30">
+                        <h4 class="text-[11px] font-bold text-rose-800 uppercase tracking-widest mb-4">Çıxış Detalları</h4>
+                        <div class="grid grid-cols-2 gap-y-4 gap-x-6">
+                            ${buildGridItem("Çıxış Tarixi", p.exitDate, true)} ${buildGridItem("Çıxış Səbəbi", p.exitReason)}
+                            ${buildGridItem("Şirkətdə İşləmə Müddəti", p.workPeriod)} ${buildGridItem("Son Restoranı", p.dept)}
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-4">
+                        <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Ümumi Məlumatlar</h4>
+                        <div class="grid grid-cols-2 gap-y-4 gap-x-6">
+                            ${buildGridItem("Telefon", p.phone)} ${buildGridItem("Email", p.email)}
+                            <div class="col-span-2 pt-2"><p class="text-[10px] font-semibold text-slate-400 uppercase mb-1">Biliklər</p><div class="flex flex-wrap">${generateSkillsHtml(p.skills)}</div></div>
+                        </div>
+                    </div>
+                    ${p.notes ? `<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><p class="text-[10px] font-semibold text-slate-400 uppercase mb-2">HR Qeydləri (Sistemdə Saxlanılan)</p><p class="text-sm font-medium text-slate-700 italic border-l-2 border-slate-300 pl-3">${p.notes}</p></div>` : ''}
+                `;
+            } else if (group === 'candidates') {
+                content = `
+                    <div class="bg-white p-5 rounded-xl border border-amber-200 shadow-sm mb-4 bg-amber-50/30">
+                        <h4 class="text-[11px] font-bold text-amber-800 uppercase tracking-widest mb-4">Müsahibə Statusu</h4>
+                        <div class="grid grid-cols-2 gap-y-4 gap-x-6">
+                            ${buildGridItem("Müraciət Tarixi", p.applyDate)} ${buildGridItem("Cari Mərhələ", p.stage, true)}
+                            ${buildGridItem("İstədiyi Vəzifə", p.role)} ${buildGridItem("Gözlənilən Restoran", p.dept)}
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-4">
+                        <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Namizəd Profili</h4>
+                        <div class="grid grid-cols-2 gap-y-4 gap-x-6">
+                            ${buildGridItem("Telefon", p.phone)} ${buildGridItem("Email", p.email)}
+                            <div class="col-span-2">${buildGridItem("Əvvəlki Təcrübəsi", p.exp)}</div>
+                            <div class="col-span-2 pt-2"><p class="text-[10px] font-semibold text-slate-400 uppercase mb-1">Biliklər</p><div class="flex flex-wrap">${generateSkillsHtml(p.skills)}</div></div>
+                        </div>
+                    </div>
+                    ${p.notes ? `<div class="p-4 bg-slate-100 rounded-lg"><p class="text-[10px] font-semibold text-slate-500 uppercase mb-1">Müsahibə Rəyi (Qeydlər)</p><p class="text-sm font-medium text-slate-800">${p.notes}</p></div>` : ''}
+                `;
+            }
+
+            document.getElementById('tab-content-area').innerHTML = content;
+        }
+
+        function closeDetailPanel() {
+            document.getElementById('detail-panel').classList.remove('panel-open');
+            document.getElementById('detail-panel').classList.add('panel-closed');
+            document.querySelectorAll('tbody tr').forEach(tr => tr.classList.remove('row-selected'));
+            currentProfileData = null; // Çap məlumatını sıfırlayırıq
+        }
+
+        function switchModalTab(tabId) {
+            document.querySelectorAll('.modal-tab-content').forEach(s => s.classList.add('modal-tab-hidden'));
+            document.getElementById(tabId).classList.remove('modal-tab-hidden');
+            
+            document.querySelectorAll('.modal-nav-btn').forEach(btn => btn.className = "modal-nav-btn py-3 text-sm font-medium text-slate-500 hover:text-slate-800 border-b-2 border-transparent");
+            document.querySelector(`.modal-nav-btn[data-target="${tabId}"]`).className = "modal-nav-btn py-3 text-sm font-bold text-rose-600 border-b-2 border-rose-600";
+        }
+
+        function openAddModal() { 
+            document.getElementById('addModal').classList.remove('hidden'); 
+            switchModalTab('m-personal'); 
+        }
+        
+        function closeAddModal() { 
+            document.getElementById('addModal').classList.add('hidden'); 
+            document.getElementById('newStaffForm').reset(); 
+        }
+
+        function saveNewStaff(e) {
+            e.preventDefault();
+            closeAddModal();
+            alert('Məlumatlar (Şəxsi, İş, Maliyyə) proqressiv olaraq uğurla bazaya əlavə edildi.');
+        }
+
+        function filterTable() {
+            const input = document.getElementById("searchInput");
+            const filter = input.value.toLowerCase();
+            const tables = ["active-tbody", "alumni-tbody", "candidates-tbody"];
+            
+            tables.forEach(tbodyId => {
+                const tbody = document.getElementById(tbodyId);
+                if (tbody) {
+                    const trs = tbody.getElementsByTagName("tr");
+                    for (let i = 0; i < trs.length; i++) {
+                        const rowText = trs[i].textContent.toLowerCase();
+                        if (rowText.includes(filter)) {
+                            trs[i].style.display = "";
+                        } else {
+                            trs[i].style.display = "none";
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- YENİ: EXCEL EXPORT FUNKSİYASI ---
+        function exportToCSV() {
+            if (currentActiveTab === 'dashboard') return;
+            
+            const dataArray = db[currentActiveTab];
+            if (!dataArray || dataArray.length === 0) {
+                alert("Çıxarılacaq məlumat yoxdur.");
+                return;
+            }
+
+            // CSV Başlıqlarını formalaşdıraq
+            const headers = Object.keys(dataArray[0]).join(",");
+            
+            // Datanı CSV formatına salaq
+            const csvRows = dataArray.map(row => {
+                return Object.values(row).map(value => {
+                    // Vergülləri və massivləri idarə etmək üçün dırnaq içinə alırıq
+                    let formatted = value;
+                    if (Array.isArray(value)) formatted = value.join('; ');
+                    else if (typeof value === 'object' && value !== null) formatted = JSON.stringify(value);
+                    
+                    return `"${String(formatted).replace(/"/g, '""')}"`;
+                }).join(",");
+            });
+
+            // BOM əlavə edirik ki, Excel Azərbaycan hərflərini (ə,ö,ğ,ş) düzgün oxusun
+            const csvContent = "\uFEFF" + [headers, ...csvRows].join("\n");
+            
+            // Faylı yükləyirik
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `CityService_${currentActiveTab}_Report.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- YENİ: PROFİL ÇAP FUNKSİYASI ---
+        function printProfile() {
+            if (!currentProfileData) return;
+            
+            const p = currentProfileData;
+            
+            // Çap üçün sadə, səliqəli HTML strukturu yaradırıq
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>${p.name} - Şəxsi Dosye</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6; }
+                        h1 { color: #e11d48; border-bottom: 2px solid #e11d48; padding-bottom: 10px; }
+                        .section { margin-bottom: 20px; }
+                        .section h3 { background: #f1f5f9; padding: 5px 10px; border-left: 4px solid #94a3b8; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                        td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
+                        td:first-child { font-weight: bold; width: 30%; color: #64748b; }
+                        .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+                    </style>
+                </head>
+                <body>
+                    <h1>City Service - İnsan Resursları Dosyesi</h1>
+                    
+                    <div class="section">
+                        <h3>Ümumi Məlumat</h3>
+                        <table>
+                            <tr><td>Ad, Soyad:</td><td>${p.name || '-'}</td></tr>
+                            <tr><td>Vəzifə:</td><td>${p.role || '-'}</td></tr>
+                            <tr><td>Restoran:</td><td>${p.dept || '-'}</td></tr>
+                            <tr><td>ID/FİN:</td><td>${p.id || '-'} / ${p.fin || '-'}</td></tr>
+                            <tr><td>Telefon:</td><td>${p.phone || '-'}</td></tr>
+                        </table>
+                    </div>
+
+                    ${p.salary ? `
+                    <div class="section">
+                        <h3>İş və Maliyyə Detalları</h3>
+                        <table>
+                            <tr><td>İşə qəbul:</td><td>${p.hireDate || '-'}</td></tr>
+                            <tr><td>Əməkhaqqı:</td><td>${p.salary || '-'}</td></tr>
+                            <tr><td>Biliklər:</td><td>${(p.skills || []).join(', ')}</td></tr>
+                        </table>
+                    </div>
+                    ` : ''}
+
+                    <div class="footer">
+                        Çıxarış tarixi: ${new Date().toLocaleDateString('az-AZ')} | City Service HR System MVP
+                    </div>
+                    
+                    <script>
+                        window.onload = function() { window.print(); window.close(); }
+                    <\/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+
+        // Tətbiq Yüklənəndə çalışacaq funksiyalar
+        window.onload = () => { 
+            renderActive(); 
+            renderAlumni(); 
+            renderCandidates(); 
+            renderDashboard(); 
+            switchMainTab('dashboard'); 
+        };
+    </script>
+</body>
+</html>
